@@ -1,7 +1,6 @@
 "use client";
 
 import { AlertIcon, CarIcon } from "@/components/icons";
-import { EmptyState } from "@/components/ui";
 import { formatDate, isPast } from "@/lib/date";
 import type { Assignment, Parent, Practice } from "@/lib/types";
 
@@ -33,23 +32,27 @@ export function Dashboard({
   const minimum = activeCounts.length ? Math.min(...activeCounts) : 0;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.3fr_.7fr]">
-      <section className="rounded-[22px] border border-[#e0e7e1] bg-white p-5 shadow-[0_10px_30px_rgba(42,72,53,.05)]">
-        <div className="mb-4 flex items-center justify-between">
+    <div className="grid gap-3 lg:grid-cols-[1.3fr_.7fr] lg:gap-4">
+      <section className="rounded-[22px] border border-[#e0e7e1] bg-white p-4 shadow-[0_10px_30px_rgba(42,72,53,.05)] sm:p-5">
+        <div className="mb-3 flex items-center justify-between sm:mb-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[.14em] text-[#b55437]">Action needed</p>
-            <h2 className="text-xl font-black">Upcoming unassigned</h2>
+            <h2 className="text-lg font-black sm:text-xl">Upcoming unassigned</h2>
           </div>
           <span className="grid size-10 place-items-center rounded-full bg-[#fff0ea] text-[#c25535]">
             <AlertIcon className="size-5" />
           </span>
         </div>
         {upcomingUnassigned.length === 0 ? (
-          <EmptyState
-            icon={<CarIcon className="size-6" />}
-            title="Every ride is covered"
-            text="There are no upcoming practices waiting for a driver."
-          />
+          <div className="flex min-h-14 items-center gap-3 rounded-xl bg-[#f1f5f1] px-4">
+            <CarIcon className="size-5 text-[#1f6a46]" />
+            <span>
+              <strong className="block text-sm">Every ride is covered</strong>
+              <span className="hidden text-xs text-[#65736b] sm:block">
+                There are no upcoming practices waiting for a driver.
+              </span>
+            </span>
+          </div>
         ) : (
           <div className="grid gap-2">
             {upcomingUnassigned.map((practice) => (
@@ -70,19 +73,19 @@ export function Dashboard({
         )}
       </section>
 
-      <section className="rounded-[22px] bg-[#174f37] p-5 text-white shadow-[0_10px_30px_rgba(23,79,55,.16)]">
-        <div className="mb-4 flex items-center justify-between">
+      <section className="rounded-[22px] bg-[#174f37] p-4 text-white shadow-[0_10px_30px_rgba(23,79,55,.16)] sm:p-5">
+        <div className="mb-3 flex items-center justify-between sm:mb-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[.14em] text-[#dff36b]">Fair share</p>
-            <h2 className="text-xl font-black">Driving summary</h2>
+            <h2 className="text-lg font-black sm:text-xl">Driving summary</h2>
           </div>
           <CarIcon className="size-7 text-[#dff36b]" />
         </div>
-        <div className="grid gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-1 lg:grid">
           {parents.filter((parent) => parent.active).map((parent) => {
             const count = counts.get(parent.id) ?? 0;
             return (
-              <div key={parent.id} className="flex items-center justify-between rounded-xl bg-white/8 px-3 py-2.5">
+              <div key={parent.id} className="flex min-w-32 items-center justify-between gap-3 rounded-xl bg-white/8 px-3 py-2.5 lg:min-w-0">
                 <span className="font-semibold">{parent.name}</span>
                 <span className="flex items-center gap-2">
                   {count === minimum && (

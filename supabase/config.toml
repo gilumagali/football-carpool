@@ -1,0 +1,2 @@
+[functions.send-driver-invitation]
+verify_jwt = true

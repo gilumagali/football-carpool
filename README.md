@@ -6,6 +6,7 @@ Mobile-first carpool scheduling for children’s football practices. The week st
 
 - Email-based demo sign-in for active parents
 - Sunday-first responsive monthly calendar
+- Touch-friendly mobile agenda with the full month grid on larger screens
 - Green assigned, orange unassigned, and gray historical practices
 - Parent, child, and practice management
 - One-off and recurring Monday/Wednesday-style practices
@@ -17,6 +18,7 @@ Mobile-first carpool scheduling for children’s football practices. The week st
 - Resend email integration with `.ics` attachment
 - Automatic `.ics` download fallback when email is not configured
 - RTL toggle and Hebrew text support
+- Private JSON backup/import for moving local data between devices
 - Production-ready Supabase/PostgreSQL schema with RLS
 
 ## Run locally
@@ -30,11 +32,23 @@ Open `http://localhost:3000` and sign in with `gmagali1989@gmail.com`.
 
 Data is stored in the browser for the immediately usable MVP. The initial workspace contains only the configured owner account; parents, children, and practices are entered through the application.
 
+Use the database icon in the header to export a private JSON backup. On another phone or browser, open the same menu and import that file. The backup contains family and schedule details, so keep it private and never add it to this public repository.
+
 ## Calendar invitations
 
-Assignments download a valid iCalendar request that can be opened on the device. Assignments use a stable UID per practice, preventing duplicate events when an assignment changes.
+When Supabase and Resend are configured, assigning a driver sends an email with an iCalendar invitation. Reassigning or cancelling sends a cancellation for the previous driver. Assignments use a stable UID per practice, preventing duplicate calendar events.
 
-GitHub Pages is static hosting and cannot securely send email or run the former invitation API. Automated email delivery requires a hosted backend such as a Supabase Edge Function. The application is structured so that service can replace `src/lib/calendar-invitation.ts`.
+If the email service is not configured or fails, the browser downloads the same valid `.ics` invitation as a fallback.
+
+### Configure email delivery
+
+1. Create a Supabase project and run both SQL files in `supabase/migrations/`.
+2. Deploy `supabase/functions/send-driver-invitation`.
+3. Set Edge Function secrets `RESEND_API_KEY` and `CALENDAR_FROM_EMAIL`.
+4. Add GitHub repository secrets `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+5. In Supabase Auth URL configuration, add `https://gilumagali.github.io/football-carpool/` as an allowed redirect URL.
+
+The Edge Function verifies the Supabase user is an active parent and limits each authenticated user to 20 email notifications per hour. Secrets remain server-side in Supabase, as required for safe browser deployment.
 
 ## GitHub Pages
 

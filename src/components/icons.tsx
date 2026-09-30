@@ -75,3 +75,15 @@ export const EditIcon = (props: IconProps) => (
 export const TrashIcon = (props: IconProps) => (
   <Icon {...props}><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6M14 11v6" /></Icon>
 );
+export const DataIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <ellipse cx="12" cy="5" rx="8" ry="3" />
+    <path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" />
+  </Icon>
+);
+export const DownloadIcon = (props: IconProps) => (
+  <Icon {...props}><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></Icon>
+);
+export const UploadIcon = (props: IconProps) => (
+  <Icon {...props}><path d="M12 21V9M7 14l5-5 5 5M5 3h14" /></Icon>
+);

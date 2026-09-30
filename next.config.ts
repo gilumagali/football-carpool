@@ -4,6 +4,7 @@ import path from "node:path";
 const nextConfig: NextConfig = {
   output: "export",
   trailingSlash: true,
+  basePath: process.env.GITHUB_ACTIONS === "true" ? "/football-carpool" : "",
   images: {
     unoptimized: true,
   },

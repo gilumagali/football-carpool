@@ -2,8 +2,9 @@
 
 import { AssignmentModal } from "@/components/assignment-modal";
 import { ChildrenManager } from "@/components/children-manager";
+import { DataTransferModal } from "@/components/data-transfer-modal";
 import { Dashboard } from "@/components/dashboard";
-import { BallIcon, CalendarIcon, ChildIcon, PlusIcon, UsersIcon } from "@/components/icons";
+import { BallIcon, CalendarIcon, ChildIcon, DataIcon, PlusIcon, UsersIcon } from "@/components/icons";
 import { Login } from "@/components/login";
 import { MonthCalendar } from "@/components/month-calendar";
 import { ParentsManager } from "@/components/parents-manager";
@@ -11,6 +12,11 @@ import { PracticesManager } from "@/components/practices-manager";
 import { startOfMonth } from "@/lib/date";
 import { downloadCalendarInvitation } from "@/lib/calendar-invitation";
 import { loadData, loadRtl, loadSession, saveData, saveRtl, saveSession } from "@/lib/store";
+import {
+  getSupabaseClient,
+  isSupabaseConfigured,
+  sendDriverEmail,
+} from "@/lib/supabase";
 import type { AppTab, CarpoolData, Child, Parent, Practice } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 
@@ -30,15 +36,29 @@ export function CarpoolApp() {
   const [selectedPractice, setSelectedPractice] = useState<Practice | null>(null);
   const [rtl, setRtl] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [dataTransferOpen, setDataTransferOpen] = useState(false);
   const [toast, setToast] = useState("");
 
   useEffect(() => {
-    queueMicrotask(() => {
+    const supabase = getSupabaseClient();
+    queueMicrotask(async () => {
       setData(loadData());
-      setSessionEmail(loadSession());
+      if (supabase) {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        setSessionEmail(session?.user.email ?? null);
+      } else {
+        setSessionEmail(loadSession());
+      }
       setRtl(loadRtl());
       setReady(true);
     });
+    if (!supabase) return;
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionEmail(session?.user.email ?? null);
+    });
+    return () => subscription.subscription.unsubscribe();
   }, []);
 
   function updateData(updater: (current: CarpoolData) => CarpoolData) {
@@ -68,12 +88,22 @@ export function CarpoolApp() {
     return (
       <Login
         parents={data.parents}
-        onLogin={(email) => {
+        onLogin={async (email) => {
           const parent = data.parents.find((item) => item.active && item.email.toLowerCase() === email);
-          if (!parent) return false;
+          if (!parent) return { ok: false };
+          const supabase = getSupabaseClient();
+          if (supabase) {
+            const { error } = await supabase.auth.signInWithOtp({
+              email,
+              options: { emailRedirectTo: window.location.href },
+            });
+            return error
+              ? { ok: false, error: error.message }
+              : { ok: true, pendingEmail: true };
+          }
           setSessionEmail(parent.email);
           saveSession(parent.email);
-          return true;
+          return { ok: true };
         }}
       />
     );
@@ -87,13 +117,26 @@ export function CarpoolApp() {
     parent: Parent,
     eventId: string,
   ) {
-    downloadCalendarInvitation({
+    const input = {
       action,
       eventId,
       parent,
       practice,
       children: appData.children.filter((child) => practice.childIds.includes(child.id)),
-    });
+    };
+    if (isSupabaseConfigured()) {
+      const result = await sendDriverEmail(input);
+      if (!result.ok || !result.status) {
+        if (action === "send") downloadCalendarInvitation(input);
+        throw new Error(
+          result.error
+            ? `${result.error} Calendar file downloaded as a fallback.`
+            : "Email failed. Calendar file downloaded as a fallback.",
+        );
+      }
+      return result.status;
+    }
+    downloadCalendarInvitation(input);
     return action === "cancel" ? "cancelled" : "generated";
   }
 
@@ -138,7 +181,11 @@ export function CarpoolApp() {
         ),
       }));
       setSelectedPractice(null);
-      notify(`Assignment saved. Calendar file created for ${parent.name}.`);
+      notify(
+        status === "sent"
+          ? `Invitation emailed to ${parent.name}.`
+          : `Assignment saved. Calendar file created for ${parent.name}.`,
+      );
     } catch (error) {
       updateData((current) => ({
         ...current,
@@ -211,17 +258,25 @@ export function CarpoolApp() {
   return (
     <div dir={rtl ? "rtl" : "ltr"} className="min-h-screen pb-24 md:pb-0">
       <header className="border-b border-[#dfe7e1] bg-[#f6f5ef]/90 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div className="flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-2xl bg-[#1f6a46] text-white">
-              <BallIcon className="size-6" />
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-3 sm:gap-4 sm:px-6 sm:py-4">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#1f6a46] text-white sm:size-11 sm:rounded-2xl">
+              <BallIcon className="size-5 sm:size-6" />
             </span>
-            <div>
-              <h1 className="text-lg font-black leading-tight sm:text-xl">Football Carpool</h1>
-              <p className="text-xs text-[#65736b]">Asia/Jerusalem · Sunday first</p>
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-black leading-tight sm:text-xl">Football Carpool</h1>
+              <p className="hidden text-xs text-[#65736b] sm:block">Asia/Jerusalem · Sunday first</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setDataTransferOpen(true)}
+              className="grid size-10 place-items-center rounded-xl bg-white shadow-sm sm:size-11"
+              aria-label="Back up or import data"
+            >
+              <DataIcon className="size-5" />
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -229,7 +284,7 @@ export function CarpoolApp() {
                 setRtl(next);
                 saveRtl(next);
               }}
-              className="grid h-11 place-items-center rounded-xl bg-white px-3 text-xs font-black shadow-sm"
+              className="grid h-10 place-items-center rounded-xl bg-white px-2 text-[11px] font-black shadow-sm sm:h-11 sm:px-3 sm:text-xs"
               aria-label="Toggle right-to-left layout"
             >
               {rtl ? "LTR" : "RTL"}
@@ -237,10 +292,11 @@ export function CarpoolApp() {
             <button
               type="button"
               onClick={() => {
+                void getSupabaseClient()?.auth.signOut();
                 saveSession(null);
                 setSessionEmail(null);
               }}
-              className="flex h-11 items-center gap-2 rounded-xl bg-white px-2 shadow-sm sm:px-3"
+              className="flex h-10 items-center gap-2 rounded-xl bg-white px-1.5 shadow-sm sm:h-11 sm:px-3"
             >
               <span className="grid size-7 place-items-center rounded-full bg-[#dff36b] text-xs font-black">{currentParent.name[0]}</span>
               <span className="hidden text-sm font-bold sm:block">{currentParent.name}</span>
@@ -375,6 +431,17 @@ export function CarpoolApp() {
           onToggleCancelled={togglePracticeCancelled}
         />
       )}
+
+      <DataTransferModal
+        open={dataTransferOpen}
+        data={appData}
+        onClose={() => setDataTransferOpen(false)}
+        onImport={(imported) => {
+          saveData(imported);
+          setData(imported);
+          notify("Backup imported successfully.");
+        }}
+      />
 
       {toast && (
         <div className="fixed bottom-24 left-1/2 z-[60] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl bg-[#17231d] px-4 py-3 text-center text-sm font-bold text-white shadow-xl md:bottom-6">

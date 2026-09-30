@@ -10,18 +10,26 @@ export function Login({
   onLogin,
 }: {
   parents: Parent[];
-  onLogin: (email: string) => boolean;
+  onLogin: (email: string) => Promise<{
+    ok: boolean;
+    pendingEmail?: boolean;
+    error?: string;
+  }>;
 }) {
   const [email, setEmail] = useState(
     parents.find((parent) => parent.active)?.email ?? "",
   );
   const [error, setError] = useState("");
+  const [pendingEmail, setPendingEmail] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!onLogin(email.trim().toLowerCase())) {
-      setError("Use the email address of an active parent in this group.");
-    }
+    setBusy(true);
+    const result = await onLogin(email.trim().toLowerCase());
+    setBusy(false);
+    setPendingEmail(Boolean(result.pendingEmail));
+    if (!result.ok) setError(result.error ?? "Use the email address of an active parent in this group.");
   }
 
   return (
@@ -66,9 +74,14 @@ export function Login({
               {error}
             </p>
           )}
-          <button className="flex h-13 items-center justify-center gap-2 rounded-xl bg-[#1f6a46] px-5 font-bold text-white transition hover:bg-[#164d35]">
+          {pendingEmail && (
+            <p className="rounded-xl bg-[#edf4ef] px-3 py-3 text-sm font-medium text-[#1f6a46]">
+              Check your inbox and open the secure sign-in link. You can close this message after the app signs you in.
+            </p>
+          )}
+          <button disabled={busy} className="flex h-13 items-center justify-center gap-2 rounded-xl bg-[#1f6a46] px-5 font-bold text-white transition hover:bg-[#164d35]">
             <CarIcon className="size-5" />
-            Open carpool
+            {busy ? "Sending link…" : "Open carpool"}
           </button>
           <p className="text-center text-xs text-[#7a877f]">
             Active account: {parents.filter((parent) => parent.active).map((parent) => parent.email).join(" · ")}

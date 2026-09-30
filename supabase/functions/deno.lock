@@ -1,0 +1,107 @@
+{
+  "version": "5",
+  "specifiers": {
+    "npm:@supabase/supabase-js@999.9.2-canary.0": "999.9.2-canary.0"
+  },
+  "npm": {
+    "@supabase/auth-js@999.9.2-canary.0": {
+      "integrity": "027c508ab6a2c7768679d34109c19d65ef7fdf7c",
+      "dependencies": [
+        "@supabase/node-fetch"
+      ],
+      "tarball": "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@supabase/auth-js/-/auth-js-999.9.2-canary.0.tgz"
+    },
+    "@supabase/functions-js@999.9.2-canary.0": {
+      "integrity": "f9113199ed82107531d063911c7cbe6a815cfbd0",
+      "dependencies": [
+        "@supabase/node-fetch"
+      ],
+      "tarball": "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@supabase/functions-js/-/functions-js-999.9.2-canary.0.tgz"
+    },
+    "@supabase/node-fetch@2.6.15": {
+      "integrity": "731271430e276983191930816303c44159e7226c",
+      "dependencies": [
+        "whatwg-url"
+      ],
+      "tarball": "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@supabase/node-fetch/-/node-fetch-2.6.15.tgz"
+    },
+    "@supabase/postgrest-js@999.9.2-canary.0": {
+      "integrity": "76951fb44698d5f16c34082b09541214e988b8db",
+      "dependencies": [
+        "@supabase/node-fetch"
+      ],
+      "tarball": "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@supabase/postgrest-js/-/postgrest-js-999.9.2-canary.0.tgz"
+    },
+    "@supabase/realtime-js@999.9.2-canary.0": {
+      "integrity": "d3959ac8df74ca6e17d9a68aab38673c736838f5",
+      "dependencies": [
+        "@supabase/node-fetch",
+        "@types/phoenix",
+        "@types/ws",
+        "ws"
+      ],
+      "tarball": "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@supabase/realtime-js/-/realtime-js-999.9.2-canary.0.tgz"
+    },
+    "@supabase/storage-js@999.9.2-canary.0": {
+      "integrity": "8bc0cadc77ebcce89572d03d1e3a4035e1b6215c",
+      "dependencies": [
+        "@supabase/node-fetch"
+      ],
+      "tarball": "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@supabase/storage-js/-/storage-js-999.9.2-canary.0.tgz"
+    },
+    "@supabase/supabase-js@999.9.2-canary.0": {
+      "integrity": "a0cd0878d534fc147de241403eea3691a0ea937d",
+      "dependencies": [
+        "@supabase/auth-js",
+        "@supabase/functions-js",
+        "@supabase/node-fetch",
+        "@supabase/postgrest-js",
+        "@supabase/realtime-js",
+        "@supabase/storage-js"
+      ],
+      "tarball": "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@supabase/supabase-js/-/supabase-js-999.9.2-canary.0.tgz"
+    },
+    "@types/node@24.2.0": {
+      "integrity": "cde712f88c5190006d6b069232582ecd1f94a760",
+      "dependencies": [
+        "undici-types"
+      ],
+      "tarball": "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@types/node/-/node-24.2.0.tgz"
+    },
+    "@types/phoenix@1.6.7": {
+      "integrity": "75137b7ecf732ceaca284cf10c1552071cfff12f",
+      "tarball": "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@types/phoenix/-/phoenix-1.6.7.tgz"
+    },
+    "@types/ws@8.18.1": {
+      "integrity": "48464e4bf2ddfd17db13d845467f6070ffea4aa9",
+      "dependencies": [
+        "@types/node"
+      ],
+      "tarball": "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@types/ws/-/ws-8.18.1.tgz"
+    },
+    "tr46@0.0.3": {
+      "integrity": "8184fd347dac9cdc185992f3a6622e14b9d9ab6a",
+      "tarball": "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/tr46/-/tr46-0.0.3.tgz"
+    },
+    "undici-types@7.10.0": {
+      "integrity": "4ac2e058ce56b462b056e629cc6a02393d3ff350",
+      "tarball": "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/undici-types/-/undici-types-7.10.0.tgz"
+    },
+    "webidl-conversions@3.0.1": {
+      "integrity": "24534275e2a7bc6be7bc86611cc16ae0a5654871",
+      "tarball": "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/webidl-conversions/-/webidl-conversions-3.0.1.tgz"
+    },
+    "whatwg-url@5.0.0": {
+      "integrity": "966454e8765462e37644d3626f6742ce8b70965d",
+      "dependencies": [
+        "tr46",
+        "webidl-conversions"
+      ],
+      "tarball": "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/whatwg-url/-/whatwg-url-5.0.0.tgz"
+    },
+    "ws@8.21.3": {
+      "integrity": "660b4faddb6a3e575c86e078126919961f4de4fc",
+      "tarball": "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/ws/-/ws-8.21.3.tgz"
+    }
+  }
+}
