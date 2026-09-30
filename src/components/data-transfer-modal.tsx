@@ -26,11 +26,13 @@ function isCarpoolData(value: unknown): value is CarpoolData {
 export function DataTransferModal({
   open,
   data,
+  shared,
   onClose,
   onImport,
 }: {
   open: boolean;
   data: CarpoolData;
+  shared: boolean;
   onClose: () => void;
   onImport: (data: CarpoolData) => void;
 }) {
@@ -94,8 +96,9 @@ export function DataTransferModal({
     <Modal open={open} title="Move or back up data" onClose={onClose}>
       <div className="grid gap-4">
         <div className="rounded-2xl bg-[#edf4ef] p-4 text-sm text-[#405248]">
-          Your family and schedule data stays private on this device. Export a backup to move it
-          to another phone or browser, then import it there.
+          {shared
+            ? "Changes are shared automatically with authenticated parents on every phone. Export a private backup for safekeeping or import older data into the shared schedule."
+            : "Cloud storage is not configured yet. Data currently stays on this device; export a backup before moving to another phone or browser."}
         </div>
 
         <button
@@ -122,7 +125,9 @@ export function DataTransferModal({
           </span>
           <span>
             <strong className="block">Import existing backup</strong>
-            <span className="text-sm text-[#65736b]">Replace this device&apos;s current data</span>
+            <span className="text-sm text-[#65736b]">
+              {shared ? "Replace the group’s shared data" : "Replace this device’s current data"}
+            </span>
           </span>
         </button>
         <input

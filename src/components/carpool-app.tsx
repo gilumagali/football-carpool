@@ -11,6 +11,13 @@ import { ParentsManager } from "@/components/parents-manager";
 import { PracticesManager } from "@/components/practices-manager";
 import { startOfMonth } from "@/lib/date";
 import { downloadCalendarInvitation } from "@/lib/calendar-invitation";
+import {
+  loadCloudData,
+  normalizeParentIds,
+  replaceCloudData,
+  shouldMigrateLocalData,
+  subscribeToCloudData,
+} from "@/lib/cloud-store";
 import { loadData, loadRtl, loadSession, saveData, saveRtl, saveSession } from "@/lib/store";
 import {
   getSupabaseClient,
@@ -18,7 +25,7 @@ import {
   sendDriverEmail,
 } from "@/lib/supabase";
 import type { AppTab, CarpoolData, Child, Parent, Practice } from "@/lib/types";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const tabs: { id: AppTab; label: string; icon: typeof CalendarIcon }[] = [
   { id: "calendar", label: "Calendar", icon: CalendarIcon },
@@ -38,11 +45,23 @@ export function CarpoolApp() {
   const [busy, setBusy] = useState(false);
   const [dataTransferOpen, setDataTransferOpen] = useState(false);
   const [toast, setToast] = useState("");
+  const [cloudLoading, setCloudLoading] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<"local" | "syncing" | "synced" | "error">(
+    isSupabaseConfigured() ? "syncing" : "local",
+  );
+  const dataRef = useRef<CarpoolData | null>(null);
+  const writeQueueRef = useRef(Promise.resolve());
+  const pendingWritesRef = useRef(0);
+  const refreshQueuedRef = useRef(false);
+  const refreshCloudRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
     const supabase = getSupabaseClient();
+    const localData = loadData();
+    dataRef.current = localData;
     queueMicrotask(async () => {
-      setData(loadData());
+      setData(localData);
+      setRtl(loadRtl());
       if (supabase) {
         const {
           data: { session },
@@ -51,7 +70,6 @@ export function CarpoolApp() {
       } else {
         setSessionEmail(loadSession());
       }
-      setRtl(loadRtl());
       setReady(true);
     });
     if (!supabase) return;
@@ -61,12 +79,122 @@ export function CarpoolApp() {
     return () => subscription.subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase || !sessionEmail) {
+      refreshCloudRef.current = async () => {};
+      queueMicrotask(() => setSyncStatus(isSupabaseConfigured() ? "syncing" : "local"));
+      return;
+    }
+    const client = supabase;
+
+    let active = true;
+    let unsubscribe = () => {};
+    let refreshTimer: number | undefined;
+
+    async function applyCloudData() {
+      if (pendingWritesRef.current > 0) {
+        refreshQueuedRef.current = true;
+        return;
+      }
+      try {
+        const cloudData = await loadCloudData(client);
+        if (!active) return;
+        dataRef.current = cloudData;
+        setData(cloudData);
+        saveData(cloudData);
+        setSyncStatus("synced");
+      } catch (error) {
+        if (!active) return;
+        setSyncStatus("error");
+        notify(error instanceof Error ? error.message : "Could not load shared carpool data.");
+      }
+    }
+
+    function scheduleRefresh() {
+      if (pendingWritesRef.current > 0) {
+        refreshQueuedRef.current = true;
+        return;
+      }
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => void applyCloudData(), 250);
+    }
+
+    refreshCloudRef.current = applyCloudData;
+    void (async () => {
+      setCloudLoading(true);
+      setSyncStatus("syncing");
+      try {
+        const cloudData = await loadCloudData(client);
+        if (!active) return;
+        const localData = dataRef.current;
+        let nextData = cloudData;
+        if (localData && shouldMigrateLocalData(localData, cloudData)) {
+          nextData = normalizeParentIds(localData, cloudData);
+          await replaceCloudData(client, nextData);
+          if (!active) return;
+          notify("Your data was moved to shared cloud storage.");
+        }
+        dataRef.current = nextData;
+        setData(nextData);
+        saveData(nextData);
+        setSyncStatus("synced");
+        unsubscribe = subscribeToCloudData(client, scheduleRefresh);
+      } catch (error) {
+        if (!active) return;
+        setSyncStatus("error");
+        notify(error instanceof Error ? error.message : "Could not connect to shared storage.");
+      } finally {
+        if (active) setCloudLoading(false);
+      }
+    })();
+
+    function refreshWhenVisible() {
+      if (document.visibilityState === "visible") scheduleRefresh();
+    }
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      active = false;
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      unsubscribe();
+      refreshCloudRef.current = async () => {};
+    };
+  }, [sessionEmail]);
+
+  function applyData(next: CarpoolData) {
+    dataRef.current = next;
+    setData(next);
+    saveData(next);
+  }
+
   function updateData(updater: (current: CarpoolData) => CarpoolData) {
-    setData((current) => {
-      if (!current) return current;
-      const next = updater(current);
-      saveData(next);
-      return next;
+    const current = dataRef.current;
+    if (!current) return;
+    const next = updater(current);
+    applyData(next);
+
+    const supabase = getSupabaseClient();
+    if (!supabase || !sessionEmail) return;
+    pendingWritesRef.current += 1;
+    setSyncStatus("syncing");
+    writeQueueRef.current = writeQueueRef.current.then(async () => {
+      try {
+        await replaceCloudData(supabase, next);
+      } catch (error) {
+        setSyncStatus("error");
+        notify(error instanceof Error ? error.message : "Could not save shared data.");
+      } finally {
+        pendingWritesRef.current -= 1;
+        if (pendingWritesRef.current === 0) {
+          if (refreshQueuedRef.current) {
+            refreshQueuedRef.current = false;
+            await refreshCloudRef.current();
+          } else {
+            setSyncStatus("synced");
+          }
+        }
+      }
     });
   }
 
@@ -76,11 +204,13 @@ export function CarpoolApp() {
   }
 
   const currentParent = useMemo(
-    () => data?.parents.find((parent) => parent.email === sessionEmail),
+    () => data?.parents.find(
+      (parent) => parent.email.toLowerCase() === sessionEmail?.toLowerCase(),
+    ),
     [data?.parents, sessionEmail],
   );
 
-  if (!ready || !data) {
+  if (!ready || !data || cloudLoading) {
     return <div className="grid min-h-screen place-items-center font-bold text-[#1f6a46]">Loading carpool…</div>;
   }
 
@@ -89,8 +219,6 @@ export function CarpoolApp() {
       <Login
         parents={data.parents}
         onLogin={async (email) => {
-          const parent = data.parents.find((item) => item.active && item.email.toLowerCase() === email);
-          if (!parent) return { ok: false };
           const supabase = getSupabaseClient();
           if (supabase) {
             const { error } = await supabase.auth.signInWithOtp({
@@ -101,6 +229,8 @@ export function CarpoolApp() {
               ? { ok: false, error: error.message }
               : { ok: true, pendingEmail: true };
           }
+          const parent = data.parents.find((item) => item.active && item.email.toLowerCase() === email);
+          if (!parent) return { ok: false };
           setSessionEmail(parent.email);
           saveSession(parent.email);
           return { ok: true };
@@ -265,7 +395,26 @@ export function CarpoolApp() {
             </span>
             <div className="min-w-0">
               <h1 className="truncate text-base font-black leading-tight sm:text-xl">Football Carpool</h1>
-              <p className="hidden text-xs text-[#65736b] sm:block">Asia/Jerusalem · Sunday first</p>
+              <p className="hidden items-center gap-1.5 text-xs text-[#65736b] sm:flex">
+                <span
+                  className={`size-2 rounded-full ${
+                    syncStatus === "synced"
+                      ? "bg-[#4f9f70]"
+                      : syncStatus === "error"
+                        ? "bg-[#d06c4d]"
+                        : syncStatus === "syncing"
+                          ? "animate-pulse bg-[#d4a441]"
+                          : "bg-[#98a39c]"
+                  }`}
+                />
+                {syncStatus === "synced"
+                  ? "Shared across devices"
+                  : syncStatus === "syncing"
+                    ? "Syncing changes"
+                    : syncStatus === "error"
+                      ? "Cloud connection problem"
+                      : "Saved on this device"}
+              </p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
@@ -435,11 +584,16 @@ export function CarpoolApp() {
       <DataTransferModal
         open={dataTransferOpen}
         data={appData}
+        shared={isSupabaseConfigured()}
         onClose={() => setDataTransferOpen(false)}
         onImport={(imported) => {
-          saveData(imported);
-          setData(imported);
-          notify("Backup imported successfully.");
+          const normalized = normalizeParentIds(imported, appData);
+          updateData(() => normalized);
+          notify(
+            isSupabaseConfigured()
+              ? "Backup imported and shared with the group."
+              : "Backup imported successfully.",
+          );
         }}
       />
 
