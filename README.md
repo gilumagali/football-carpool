@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Football Carpool
 
-## Getting Started
+Mobile-first carpool scheduling for children’s football practices. The week starts on Sunday, dates use Israeli formatting, and calendar operations use `Asia/Jerusalem`.
 
-First, run the development server:
+## Included MVP
+
+- Email-based demo sign-in for active parents
+- Sunday-first responsive monthly calendar
+- Green assigned, orange unassigned, and gray historical practices
+- Parent, child, and practice management
+- One-off and recurring Monday/Wednesday-style practices
+- Individual editing of generated recurring occurrences
+- Individual cancellation and restoration of any practice occurrence
+- Driver assignment with live driving counts and capacity warnings
+- Upcoming unassigned dashboard and fair-share summary
+- Stable calendar event IDs, cancellation on reassignment/removal, and duplicate prevention
+- Resend email integration with `.ics` attachment
+- Automatic `.ics` download fallback when email is not configured
+- RTL toggle and Hebrew text support
+- Production-ready Supabase/PostgreSQL schema with RLS
+
+## Run locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000` and sign in with `gmagali1989@gmail.com`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Data is stored in the browser for the immediately usable MVP. The initial workspace contains only the configured owner account; parents, children, and practices are entered through the application.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Calendar invitations
 
-## Learn More
+Assignments download a valid iCalendar request that can be opened on the device. Assignments use a stable UID per practice, preventing duplicate events when an assignment changes.
 
-To learn more about Next.js, take a look at the following resources:
+GitHub Pages is static hosting and cannot securely send email or run the former invitation API. Automated email delivery requires a hosted backend such as a Supabase Edge Function. The application is structured so that service can replace `src/lib/calendar-invitation.ts`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## GitHub Pages
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The workflow in `.github/workflows/deploy-pages.yml` builds the static export and deploys it on every push to `main`.
 
-## Deploy on Vercel
+## Supabase migration
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Run `supabase/migrations/001_initial_schema.sql` in a Supabase project. The schema includes parents, children, practices, practice participants, assignments, invite status, one-driver-per-practice constraints, role-ready parent records, indexes, and authenticated-user RLS policies.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The browser repository in `src/lib/store.ts` is deliberately isolated so it can be replaced by a Supabase repository without changing calendar or assignment components.
