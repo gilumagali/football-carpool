@@ -73,10 +73,29 @@ export function CarpoolApp() {
       setReady(true);
     });
     if (!supabase) return;
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+    const client = supabase;
+    const { data: subscription } = client.auth.onAuthStateChange((_event, session) => {
       setSessionEmail(session?.user.email ?? null);
     });
-    return () => subscription.subscription.unsubscribe();
+
+    async function refreshAuthSession() {
+      const {
+        data: { session },
+      } = await client.auth.getSession();
+      setSessionEmail(session?.user.email ?? null);
+    }
+
+    function refreshAuthWhenVisible() {
+      if (document.visibilityState === "visible") void refreshAuthSession();
+    }
+
+    window.addEventListener("focus", refreshAuthSession);
+    document.addEventListener("visibilitychange", refreshAuthWhenVisible);
+    return () => {
+      subscription.subscription.unsubscribe();
+      window.removeEventListener("focus", refreshAuthSession);
+      document.removeEventListener("visibilitychange", refreshAuthWhenVisible);
+    };
   }, []);
 
   useEffect(() => {
@@ -221,13 +240,30 @@ export function CarpoolApp() {
         onLogin={async (email) => {
           const supabase = getSupabaseClient();
           if (supabase) {
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+            const signedInEmail = session?.user.email?.toLowerCase();
+            if (signedInEmail === email) {
+              setSessionEmail(session?.user.email ?? email);
+              return { ok: true };
+            }
             const { error } = await supabase.auth.signInWithOtp({
               email,
               options: { emailRedirectTo: window.location.href },
             });
-            return error
-              ? { ok: false, error: error.message }
-              : { ok: true, pendingEmail: true };
+            if (!error) return { ok: true, pendingEmail: true };
+            if (
+              error.code === "over_email_send_rate_limit" ||
+              error.message.toLowerCase().includes("email rate limit")
+            ) {
+              return {
+                ok: false,
+                error:
+                  "A sign-in email was already sent. Open the newest email, or wait before requesting another link.",
+              };
+            }
+            return { ok: false, error: error.message };
           }
           const parent = data.parents.find((item) => item.active && item.email.toLowerCase() === email);
           if (!parent) return { ok: false };

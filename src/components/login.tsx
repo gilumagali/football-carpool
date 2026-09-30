@@ -25,11 +25,20 @@ export function Login({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    setError("");
+    setPendingEmail(false);
     setBusy(true);
-    const result = await onLogin(email.trim().toLowerCase());
-    setBusy(false);
-    setPendingEmail(Boolean(result.pendingEmail));
-    if (!result.ok) setError(result.error ?? "Use the email address of an active parent in this group.");
+    try {
+      const result = await onLogin(email.trim().toLowerCase());
+      setPendingEmail(Boolean(result.pendingEmail));
+      if (!result.ok) {
+        setError(result.error ?? "Use the email address of an active parent in this group.");
+      }
+    } catch {
+      setError("Could not sign in. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
