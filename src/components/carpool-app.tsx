@@ -291,19 +291,15 @@ export function CarpoolApp() {
       children: appData.children.filter((child) => practice.childIds.includes(child.id)),
     };
     if (isSupabaseConfigured()) {
-      const result = await sendDriverEmail(input);
-      if (!result.ok || !result.status) {
-        if (action === "send") downloadCalendarInvitation(input);
-        throw new Error(
-          result.error
-            ? `${result.error} Calendar file downloaded as a fallback.`
-            : "Email failed. Calendar file downloaded as a fallback.",
-        );
+      try {
+        const result = await sendDriverEmail(input);
+        if (result.ok && result.status) return result.status;
+      } catch {
+        // Use the same calendar-file fallback for network and service failures.
       }
-      return result.status;
     }
-    downloadCalendarInvitation(input);
-    return action === "cancel" ? "cancelled" : "generated";
+    downloadCalendarInvitation(input, true);
+    return "generated";
   }
 
   async function assignParent(practice: Practice, parentId: string) {
@@ -371,13 +367,17 @@ export function CarpoolApp() {
     if (!assignment || !parent) return;
     setBusy(true);
     try {
-      await sendInvitation("cancel", practice, parent, assignment.calendarEventId);
+      const status = await sendInvitation("cancel", practice, parent, assignment.calendarEventId);
       updateData((current) => ({
         ...current,
         assignments: current.assignments.filter((item) => item.id !== assignment.id),
       }));
       setSelectedPractice(null);
-      notify(`Assignment removed and ${parent.name}'s invitation cancelled.`);
+      notify(
+        status === "generated"
+          ? `Assignment removed. A cancellation file was created for ${parent.name}.`
+          : `Assignment removed and ${parent.name}'s invitation cancelled.`,
+      );
     } catch (error) {
       notify(error instanceof Error ? error.message : "Could not cancel the invitation.");
     } finally {
@@ -402,8 +402,10 @@ export function CarpoolApp() {
     const parent = appData.parents.find((item) => item.id === assignment?.parentId);
     setBusy(true);
     try {
+      let cancellationStatus: "cancelled" | "generated" | undefined;
       if (assignment && parent) {
-        await sendInvitation("cancel", practice, parent, assignment.calendarEventId);
+        const status = await sendInvitation("cancel", practice, parent, assignment.calendarEventId);
+        cancellationStatus = status === "generated" ? "generated" : "cancelled";
       }
       updateData((current) => ({
         ...current,
@@ -413,9 +415,44 @@ export function CarpoolApp() {
         assignments: current.assignments.filter((item) => item.practiceId !== practice.id),
       }));
       setSelectedPractice(null);
-      notify(parent ? `Practice cancelled. ${parent.name}'s invitation was cancelled.` : "Practice cancelled.");
+      notify(
+        parent && cancellationStatus === "generated"
+          ? `Practice cancelled. A cancellation file was created for ${parent.name}.`
+          : parent
+            ? `Practice cancelled. ${parent.name}'s invitation was cancelled.`
+            : "Practice cancelled.",
+      );
     } catch (error) {
       notify(error instanceof Error ? error.message : "Could not cancel the practice.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deletePractice(practice: Practice) {
+    const assignment = appData.assignments.find((item) => item.practiceId === practice.id);
+    const parent = appData.parents.find((item) => item.id === assignment?.parentId);
+    setBusy(true);
+    try {
+      let cancellationStatus: "cancelled" | "generated" | undefined;
+      if (assignment && parent) {
+        const status = await sendInvitation("cancel", practice, parent, assignment.calendarEventId);
+        cancellationStatus = status === "generated" ? "generated" : "cancelled";
+      }
+      updateData((current) => ({
+        ...current,
+        practices: current.practices.filter((item) => item.id !== practice.id),
+        assignments: current.assignments.filter((item) => item.practiceId !== practice.id),
+      }));
+      notify(
+        parent && cancellationStatus === "generated"
+          ? `Practice deleted. A cancellation file was created for ${parent.name}.`
+          : parent
+            ? `Practice deleted and ${parent.name}'s invitation was cancelled.`
+            : "Practice deleted.",
+      );
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Could not delete the practice.");
     } finally {
       setBusy(false);
     }
@@ -543,17 +580,14 @@ export function CarpoolApp() {
                   ? [...current.practices.filter((item) => item.id !== editingId), ...practices]
                   : [...current.practices, ...practices],
               }))}
-              onDelete={(practice) => updateData((current) => ({
-                ...current,
-                practices: current.practices.filter((item) => item.id !== practice.id),
-                assignments: current.assignments.filter((item) => item.practiceId !== practice.id),
-              }))}
+              onDelete={deletePractice}
               onToggleCancelled={togglePracticeCancelled}
             />
           )}
           {tab === "parents" && (
             <ParentsManager
               parents={appData.parents}
+              currentParentId={currentParent.id}
               assignedParentIds={new Set(appData.assignments.map((assignment) => assignment.parentId))}
               onSave={(parent) => updateData((current) => ({
                 ...current,
@@ -561,10 +595,16 @@ export function CarpoolApp() {
                   ? current.parents.map((item) => item.id === parent.id ? parent : item)
                   : [...current.parents, parent],
               }))}
-              onDelete={(parent) => updateData((current) => ({
-                ...current,
-                parents: current.parents.filter((item) => item.id !== parent.id),
-              }))}
+              onDelete={(parent) => {
+                if (parent.id === currentParent.id) {
+                  notify("Your signed-in parent account must remain active.");
+                  return;
+                }
+                updateData((current) => ({
+                  ...current,
+                  parents: current.parents.filter((item) => item.id !== parent.id),
+                }));
+              }}
             />
           )}
           {tab === "children" && (

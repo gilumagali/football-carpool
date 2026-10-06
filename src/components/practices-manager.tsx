@@ -43,7 +43,7 @@ export function PracticesManager({
   practices: Practice[];
   kids: Child[];
   onSave: (practices: Practice[], editingId?: string) => void;
-  onDelete: (practice: Practice) => void;
+  onDelete: (practice: Practice) => void | Promise<void>;
   onToggleCancelled: (practice: Practice) => void;
 }) {
   const [editing, setEditing] = useState<Practice | null>(null);
@@ -116,7 +116,7 @@ export function PracticesManager({
                   {practice.cancelledAt ? "Restore" : "Cancel"}
                 </button>
                 <button type="button" onClick={() => show(practice)} className="grid size-11 place-items-center rounded-xl hover:bg-[#eef3ef]" aria-label="Edit practice"><EditIcon className="size-4" /></button>
-                <button type="button" onClick={() => onDelete(practice)} className="grid size-11 place-items-center rounded-xl text-[#b54f31] hover:bg-[#fff0eb]" aria-label="Delete practice"><TrashIcon className="size-4" /></button>
+                <button type="button" onClick={() => void onDelete(practice)} className="grid size-11 place-items-center rounded-xl text-[#b54f31] hover:bg-[#fff0eb]" aria-label="Delete practice"><TrashIcon className="size-4" /></button>
               </div>
             </article>
           ))}

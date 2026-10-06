@@ -15,11 +15,13 @@ const emptyParent = {
 
 export function ParentsManager({
   parents,
+  currentParentId,
   assignedParentIds,
   onSave,
   onDelete,
 }: {
   parents: Parent[];
+  currentParentId: string;
   assignedParentIds: Set<string>;
   onSave: (parent: Parent) => void;
   onDelete: (parent: Parent) => void;
@@ -52,7 +54,7 @@ export function ParentsManager({
       email: form.email.trim().toLowerCase(),
       phone: form.phone.trim() || undefined,
       capacity: form.capacity ? Number(form.capacity) : undefined,
-      active: form.active,
+      active: editing?.id === currentParentId ? true : form.active,
       createdAt: editing?.createdAt ?? new Date().toISOString(),
     });
     setOpen(false);
@@ -109,8 +111,14 @@ export function ParentsManager({
                 <button
                   type="button"
                   onClick={() => onDelete(parent)}
-                  disabled={assignedParentIds.has(parent.id)}
-                  title={assignedParentIds.has(parent.id) ? "Deactivate parents with assignment history instead of deleting them." : "Delete parent"}
+                  disabled={parent.id === currentParentId || assignedParentIds.has(parent.id)}
+                  title={
+                    parent.id === currentParentId
+                      ? "Your signed-in parent account cannot be deleted."
+                      : assignedParentIds.has(parent.id)
+                        ? "Deactivate parents with assignment history instead of deleting them."
+                        : "Delete parent"
+                  }
                   className="grid size-11 place-items-center rounded-xl bg-[#fff0eb] text-[#b54f31] transition hover:bg-[#ffe3da]"
                 >
                   <TrashIcon className="size-4" />
@@ -137,8 +145,14 @@ export function ParentsManager({
             </Field>
           </div>
           <label className="flex min-h-12 items-center gap-3 rounded-xl border border-[#e0e7e1] px-4 font-semibold">
-            <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="size-5 accent-[#1f6a46]" />
-            Active parent
+            <input
+              type="checkbox"
+              checked={editing?.id === currentParentId || form.active}
+              disabled={editing?.id === currentParentId}
+              onChange={(e) => setForm({ ...form, active: e.target.checked })}
+              className="size-5 accent-[#1f6a46]"
+            />
+            {editing?.id === currentParentId ? "Active parent (current account)" : "Active parent"}
           </label>
           <button className="min-h-12 rounded-xl bg-[#1f6a46] px-5 font-bold text-white hover:bg-[#164d35]">Save parent</button>
         </form>
